@@ -1,0 +1,6 @@
+THIS PACKAGE IS *NOT* FREE SOFTWARE. PLEASE SEE THE CFSQP LICENSE FOR
+MORE INFORMATION.  DO /NOT/ DISTRIBUTE THIS PROJECT OUTSIDE OF THE
+JRL.
+
+The CFSQP bridge is (everything except cfsqp.c, qld.c and cfsqpusr.h)
+is in the public domain.
