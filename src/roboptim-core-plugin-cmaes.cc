@@ -44,7 +44,7 @@ namespace roboptim
       void remove_temp (const boost::filesystem::path& tmp_file)
       {
 	if (boost::filesystem::exists (tmp_file))
-          boost::filesystem::remove(tmp_file);
+          boost::filesystem::remove (tmp_file);
       }
     } // end of namespace detail
 
@@ -64,6 +64,8 @@ namespace roboptim
       DEFINE_PARAMETER ("max-iterations", "number of iterations", 3000);
       DEFINE_PARAMETER ("cmaes.lambda", "number of offspring (samplesize)",
                         4 + (int)(3 * std::log ((double)n_)));
+      DEFINE_PARAMETER ("cmaes.output_file", "CMA-ES output file", "");
+      DEFINE_PARAMETER ("cmaes.log_file", "CMA-ES log file", "");
     }
 
     CMAESSolver::~CMAESSolver () throw ()
@@ -96,7 +98,7 @@ namespace roboptim
     {
       detail::remove_temp (tempInitials_);
 
-      tempInitials_ = boost::filesystem::unique_path ();
+      tempInitials_ = boost::filesystem::unique_path ("cmaes_initials_%%%%-%%%%.par");
 
       std::stringstream ss;
 
@@ -130,6 +132,7 @@ namespace roboptim
 	  ss << (problem ().argumentBounds ()[i].second - problem ().argumentBounds ()[i].first)/4.
 	     << " ";
 	}
+      ss << std::endl;
 
       /// SECOND: optional parameters
 
@@ -145,15 +148,12 @@ namespace roboptim
     {
       detail::remove_temp (tempSignals_);
 
-      tempSignals_ = boost::filesystem::unique_path ();
+      tempSignals_ = boost::filesystem::unique_path ("cmaes_signals_%%%%-%%%%.par");
 
       std::stringstream ss;
 
-      // print every 200 seconds
-      //ss << "print fewinfo     200" << std::endl;
-
-      // clock: used processor time since start
-      //ss << "print few+clock     2" << std::endl;
+      // number > 0 switches checking on, Check_Eigen() is O(n^3)!
+      ss << "checkeigen 0" << std::endl;
 
       std::ofstream temp_file;
       temp_file.open (tempSignals_.c_str ());
@@ -175,15 +175,34 @@ namespace roboptim
       double *ar_xfinal;
 
       // Initialize everything into the struct evo, 0 means default
-      ar_objectives = cmaes_init (&evo, 0, NULL, NULL, 0, 0,
+      int lambda = boost::get<int> (parameters ()["cmaes.lambda"].value);
+      ar_objectives = cmaes_init (&evo, 0, NULL, NULL, 0, lambda,
                                   tempInitials_.c_str ());
-      //std::cout << cmaes_SayHello (&evo) << std::endl;
+
+      // If using a log file
+      if (parameters ().find ("cmaes.log_file") != parameters ().end ())
+    {
+          std::string filename = boost::get<std::string>
+	    (parameters ()["cmaes.log_file"].value);
+          if (filename.compare ("") != 0)
+	    {
+	      std::stringstream ss;
+
+	      ss << cmaes_SayHello (&evo) << std::endl;
+
+	      std::ofstream log_file;
+          log_file.open (filename.c_str (),
+                         std::fstream::out | std::fstream::app);
+	      log_file << ss.str ();
+	      log_file.close ();
+	    }
+	}
 
       Map<VectorXd> objectives (ar_objectives,
                                 static_cast<VectorXd::Index> (evo.sp.lambda));
 
       // Write header and initial values
-      cmaes_ReadSignals (&evo, "cmaes_signals.par");
+      cmaes_ReadSignals (&evo, tempSignals_.c_str ());
 
       // Iterate until stop criterion holds
       while (!cmaes_TestForTermination (&evo))
@@ -232,11 +251,18 @@ namespace roboptim
 	    }
 	}
 
-      // Print termination reason
-      //std::cout << "Stop:\n" << cmaes_TestForTermination (&evo) << std::endl;
-
-      // Write final results
-      cmaes_WriteToFile (&evo, "all", "allcmaes.dat");
+      // Output file
+      if (parameters ().find ("cmaes.output_file") != parameters ().end ())
+	{
+          // Display the traces of CMA-ES
+          std::string filename = boost::get<std::string>
+	    (parameters ()["cmaes.output_file"].value);
+          if (filename.compare ("") != 0)
+	    {
+              // Write final results
+              cmaes_WriteToFile (&evo, "all", filename.c_str ());
+	    }
+	}
 
       // Get best estimator for the optimum, xmean
       // "xbestever" might be used as well
