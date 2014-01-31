@@ -18,6 +18,7 @@
 #include <cstring>
 #include <fstream>
 #include <sstream>
+#include <cmath>
 
 #include <boost/assign/list_of.hpp>
 
@@ -27,10 +28,25 @@
 
 #include <roboptim/core/plugin/cmaes/cmaes.hh>
 
+
+#define DEFINE_PARAMETER(KEY, DESCRIPTION, VALUE)	\
+  do {							\
+    this->parameters_[KEY].description = DESCRIPTION;	\
+    this->parameters_[KEY].value = VALUE;		\
+  } while (0)
+
 namespace roboptim
 {
   namespace cmaes
   {
+    namespace detail
+    {
+      void remove_temp (const boost::filesystem::path& tmp_file)
+      {
+	if (boost::filesystem::exists (tmp_file))
+          boost::filesystem::remove(tmp_file);
+      }
+    } // end of namespace detail
 
     CMAESSolver::CMAESSolver (const problem_t& problem) :
       parent_t (problem),
@@ -45,21 +61,41 @@ namespace roboptim
       // Initialize this class parameters
       x_.setZero ();
 
-      generateSignalsFile ();
+      DEFINE_PARAMETER ("max-iterations", "number of iterations", 3000);
+      DEFINE_PARAMETER ("cmaes.lambda", "number of offspring (samplesize)",
+                        4 + (int)(3 * std::log ((double)n_)));
     }
 
     CMAESSolver::~CMAESSolver () throw ()
     {
       // Remove temporary files
-      if (boost::filesystem::exists (tempInitials_))
-	boost::filesystem::remove(tempInitials_);
+      detail::remove_temp (tempInitials_);
+      detail::remove_temp (tempSignals_);
+    }
 
-      if (boost::filesystem::exists (tempSignals_))
-	boost::filesystem::remove(tempSignals_);
+    CMAESSolver::function_t::result_t CMAESSolver::costBounds
+    (const Function::argument_t& x)
+    {
+      function_t::result_t res (problem ().function ().inputSize ());
+
+      for (std::size_t i = 0;
+	   i < static_cast<std::size_t> (res.size ());
+	   ++i)
+	{
+	  // Check min
+	  if (x[i] < problem ().argumentBounds ()[i].first)
+	    res[i] = std::fabs (x[i] - problem ().argumentBounds ()[i].first);
+	  // Check max
+	  else if (x[i] > problem ().argumentBounds ()[i].second)
+	    res[i] = std::fabs (x[i] - problem ().argumentBounds ()[i].second);
+	}
+      return res;
     }
 
     void CMAESSolver::generateInitialsFile()
     {
+      detail::remove_temp (tempInitials_);
+
       tempInitials_ = boost::filesystem::unique_path ();
 
       std::stringstream ss;
@@ -69,6 +105,8 @@ namespace roboptim
 	{
 	  x_ = *(problem ().startingPoint ());
 	}
+
+      /// FIRST: mandatory parameters
 
       // Problem dimension
       ss << "N " << n_ << std::endl;
@@ -93,6 +131,10 @@ namespace roboptim
 	     << " ";
 	}
 
+      /// SECOND: optional parameters
+
+      ss << "stopMaxIter " << parameters()["max-iterations"].value;
+
       std::ofstream temp_file;
       temp_file.open (tempInitials_.c_str ());
       temp_file << ss.str ();
@@ -101,6 +143,8 @@ namespace roboptim
 
     void CMAESSolver::generateSignalsFile()
     {
+      detail::remove_temp (tempSignals_);
+
       tempSignals_ = boost::filesystem::unique_path ();
 
       std::stringstream ss;
@@ -122,6 +166,7 @@ namespace roboptim
       using namespace Eigen;
 
       generateInitialsFile ();
+      generateSignalsFile ();
 
       // CMA-ES type struct or "object"
       cmaes_t evo;
@@ -162,9 +207,12 @@ namespace roboptim
 	  // Evaluate the new search points using fitfun
 	  for (int i = 0; i < objectives.size (); ++i)
 	    {
+	      // Map the population to Eigen
 	      Map<VectorXd> pop_i (ar_pop[i],
 				   static_cast<VectorXd::Index> (cmaes_Get(&evo, "dim")));
-	      objectives[i] = cost_ (pop_i).sum ();
+
+	      // Compute the cost: actual cost + bound-related cost
+	      objectives[i] = cost_ (pop_i).sum () + costBounds (pop_i).sum ();
 	    }
 
 	  // Update the search distribution used for cmaes_SamplePopulation()
@@ -207,7 +255,7 @@ namespace roboptim
       free (ar_xfinal);
     }
 
-  } // namespace cmaes
+  } // end of namespace cmaes
 } // end of namespace roboptim
 
 extern "C"

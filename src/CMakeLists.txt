@@ -23,8 +23,7 @@ ADD_LIBRARY(cmaes SHARED
   cma/boundary_transformation.c
   )
 
-SET_TARGET_PROPERTIES(cmaes PROPERTIES
-  INCLUDE_DIRECTORIES ${CMAKE_SOURCE_DIR}/include/roboptim/core/plugin/cmaes/cma)
+INCLUDE_DIRECTORIES (${CMAKE_SOURCE_DIR}/include/roboptim/core/plugin/cmaes/cma)
 INSTALL(TARGETS cmaes DESTINATION ${ROBOPTIM_CORE_PLUGINDIR})
 
 # CMA-ES plug-in.

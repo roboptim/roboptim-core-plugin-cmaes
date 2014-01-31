@@ -33,16 +33,16 @@ extern "C" {
 
 namespace roboptim {
   namespace cmaes {
-    /// \brief Solver implementing CMA-ES algorithm.
-    ///
-    /// This solver tries to minimize the euclidean norm of a vector valued
-    /// function.
+    /// \brief Solver implementing CMA-ES (Covariance Matrix Adaptation
+    /// Evolution Strategy) algorithm.
+    /// \see <a href="https://www.lri.fr/~hansen/cmaesintro.html">N. Hansen's webpage</a>.
     class CMAESSolver
-      : public Solver<DifferentiableFunction, boost::mpl::vector<> >
+      : public Solver<GenericFunction<EigenMatrixDense>, boost::mpl::vector<> >
     {
     public:
       /// \brief Parent type
-      typedef Solver<DifferentiableFunction, boost::mpl::vector<> > parent_t;
+      typedef Solver<GenericFunction<EigenMatrixDense>,
+                     boost::mpl::vector<> > parent_t;
       /// \brief Cost function type
       typedef problem_t::function_t function_t;
       /// \brief type of result
@@ -113,6 +113,10 @@ namespace roboptim {
 
       /// \brief Generate CMA-ES signals file from problem parameters.
       virtual void generateSignalsFile ();
+
+      /// \brief Compute the part of the cost function related to the
+      /// argument bounds.
+      function_t::result_t costBounds (const Function::argument_t& x);
 
     private:
       /// \brief Number of variables
