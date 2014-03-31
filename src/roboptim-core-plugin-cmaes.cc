@@ -84,12 +84,15 @@ namespace roboptim
 	   i < static_cast<std::size_t> (res.size ());
 	   ++i)
 	{
+	  CMAESSolver::vector_t::Index i_ =
+	    static_cast<CMAESSolver::vector_t::Index> (i);
+
 	  // Check min
-	  if (x[i] < problem ().argumentBounds ()[i].first)
-	    res[i] = std::fabs (x[i] - problem ().argumentBounds ()[i].first);
+	  if (x[i_] < problem ().argumentBounds ()[i].first)
+	    res[i_] = std::fabs (x[i_] - problem ().argumentBounds ()[i].first);
 	  // Check max
-	  else if (x[i] > problem ().argumentBounds ()[i].second)
-	    res[i] = std::fabs (x[i] - problem ().argumentBounds ()[i].second);
+	  else if (x[i_] > problem ().argumentBounds ()[i].second)
+	    res[i_] = std::fabs (x[i_] - problem ().argumentBounds ()[i].second);
 	}
       return res;
     }
