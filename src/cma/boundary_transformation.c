@@ -121,7 +121,7 @@ void boundary_transformation_inverse(boundary_transformation_t *t,
 		lb = t->lower_bounds[_index(t, i)];
 		ub = t->upper_bounds[_index(t, i)];
 		al = t->al[_index(t, i)];
-		au = t->al[_index(t, i)];
+		 t->au[_index(t, i)];
 		y[i] = x[i];
 		if (y[i] < lb + al)
 			y[i] = (lb - al) + 2 * sqrt(al * (y[i] - lb));
